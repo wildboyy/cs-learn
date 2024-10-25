@@ -297,3 +297,31 @@ Python 授予函数完全的一流地位，由此带来的表达能力的提升�
 
 ```
 
+
+
+## 1.7 递归
+
+介绍了递归的概念，并用python实现了一些常见的递归算法
+
+### 1.7.5 分割数
+
+实现 count_partitions(n, m)
+
+The number of partitions of a positive integer `n`, using parts up to size `m`, is the number of ways in which `n` can be expressed as the sum of positive integer parts up to `m` in increasing order. For example, the number of partitions of 6 using parts up to 4 is 9.
+
+
+
+```python
+>>> def count_partitions(n, m):
+        """Count the ways to partition n using parts up to m."""
+        if n == 0:
+            return 1
+        elif n < 0:
+            return 0
+        elif m == 0:
+            return 0
+        else:
+            return count_partitions(n-m, m) + count_partitions(n, m-1)
+```
+
+2
