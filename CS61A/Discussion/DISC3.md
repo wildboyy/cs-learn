@@ -26,5 +26,13 @@ def seven(n, k, d, cur, i):
     cur = (cur - 1) % k + 1
     i += 1
     return seven(n, k, d, cur, i)
+  
+  for (int i = 0; i < n; i++) {
+    	int a = nums[i];
+    	// 从子数组nums(0,i-1)中找有没有 sum - a
+    	if (map[sum - a] == 1) return [map[sum - a], ]
+    	// 将a记入map，如果用重复直接覆盖就行
+    	map[a] = i;
+  }
 ```
 
