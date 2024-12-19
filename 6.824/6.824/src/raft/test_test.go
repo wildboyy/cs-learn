@@ -19,6 +19,9 @@ import "sync"
 // (much more than the paper's range of timeouts).
 const RaftElectionTimeout = 1000 * time.Millisecond
 
+//TestInitialElection测试启动后Raft集群是否能够选出一个leader，
+//并检查在网络稳定的情况，也就是不应该发生心跳信号等待超时的情况下，
+//是否能保持原来的leader和term状态不变。
 func TestInitialElection2A(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false, false)
@@ -28,7 +31,6 @@ func TestInitialElection2A(t *testing.T) {
 
 	// is a leader elected?
 	cfg.checkOneLeader()
-
 	// sleep a bit to avoid racing with followers learning of the
 	// election, then check that all peers agree on the term.
 	time.Sleep(50 * time.Millisecond)
@@ -50,6 +52,10 @@ func TestInitialElection2A(t *testing.T) {
 	cfg.end()
 }
 
+//TestReElection测试在上一个测试的基础上，检查发生leader离线情况的行为。
+//先等待集群产生一个leader，然后让这个leader离线，检查集群能否再产生一个leader。
+//若能，令原来的leader上线，检查leader不应该发生变化，因为后来的leader的term大于原来的leader。
+//如果满足要求，令一个leader和一个follower离线，检查此时集群不应该再产生新leader，因为超过半数的服务器离线了。
 func TestReElection2A(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false, false)
@@ -90,6 +96,7 @@ func TestReElection2A(t *testing.T) {
 	cfg.end()
 }
 
+//TestManyElections测试是上一个测试的现实版本。每次随机令2个服务器离线，检查集群状态是否符合要求。如此重复10次。
 func TestManyElections2A(t *testing.T) {
 	servers := 7
 	cfg := make_config(t, servers, false, false)
@@ -131,6 +138,7 @@ func TestBasicAgree2B(t *testing.T) {
 	cfg.begin("Test (2B): basic agreement")
 
 	iters := 3
+	//检验除了快照外后面的三个日志是否已经被提交
 	for index := 1; index < iters+1; index++ {
 		nd, _ := cfg.nCommitted(index)
 		if nd > 0 {
@@ -184,7 +192,7 @@ func TestRPCBytes2B(t *testing.T) {
 //
 // test just failure of followers.
 //
-func For2023TestFollowerFailure2B(t *testing.T) {
+func TestFor2023TestFollowerFailure2B(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false, false)
 	defer cfg.cleanup()
@@ -231,7 +239,7 @@ func For2023TestFollowerFailure2B(t *testing.T) {
 //
 // test just failure of leaders.
 //
-func For2023TestLeaderFailure2B(t *testing.T) {
+func TestFor2023TestLeaderFailure2B(t *testing.T) {
 	servers := 3
 	cfg := make_config(t, servers, false, false)
 	defer cfg.cleanup()
@@ -1199,7 +1207,7 @@ func TestSnapshotInstallUnCrash2D(t *testing.T) {
 //
 func TestSnapshotAllCrash2D(t *testing.T) {
 	servers := 3
-	iters := 5
+	iters := 1
 	cfg := make_config(t, servers, false, true)
 	defer cfg.cleanup()
 

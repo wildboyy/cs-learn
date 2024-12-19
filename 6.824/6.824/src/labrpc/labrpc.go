@@ -49,7 +49,9 @@ package labrpc
 //   pass svc to srv.AddService()
 //
 
-import "6.824/labgob"
+import (
+	"6.824/labgob"
+)
 import "bytes"
 import "reflect"
 import "sync"
@@ -81,6 +83,7 @@ type ClientEnd struct {
 // send an RPC, wait for the reply.
 // the return value indicates success; false means that
 // no reply was received from the server.
+//请求使用的是每个客户端的chan，req会创建一个响应chan，从这个chan中获取结果
 func (e *ClientEnd) Call(svcMeth string, args interface{}, reply interface{}) bool {
 	req := reqMsg{}
 	req.endname = e.endname
@@ -216,6 +219,7 @@ func (rn *Network) isServerDead(endname interface{}, servername interface{}, ser
 }
 
 func (rn *Network) processReq(req reqMsg) {
+	//这里获取的是当前clientend所连接的
 	enabled, servername, server, reliable, longreordering := rn.readEndnameInfo(req.endname)
 
 	if enabled && servername != nil && server != nil {
@@ -439,31 +443,32 @@ func (rs *Server) GetCount() int {
 // a single server may have more than one Service.
 type Service struct {
 	name    string
-	rcvr    reflect.Value
+	rcvr    reflect.Value //它的作用是作为方法中隐含的第0个参数
 	typ     reflect.Type
 	methods map[string]reflect.Method
 }
 
 func MakeService(rcvr interface{}) *Service {
 	svc := &Service{}
-	svc.typ = reflect.TypeOf(rcvr)
-	svc.rcvr = reflect.ValueOf(rcvr)
-	svc.name = reflect.Indirect(svc.rcvr).Type().Name()
+	svc.typ = reflect.TypeOf(rcvr)                      //eg:*raft.Raft
+	svc.rcvr = reflect.ValueOf(rcvr)                    //eg:&{value1 value2 value3}
+	svc.name = reflect.Indirect(svc.rcvr).Type().Name() //eg:Indirect(svc.rcvr) => {value1 value2 value3} | .type =>raft.Raft | .type.name => Raft
 	svc.methods = map[string]reflect.Method{}
 
+	//遍历所有大写方法
 	for m := 0; m < svc.typ.NumMethod(); m++ {
 		method := svc.typ.Method(m)
-		mtype := method.Type
-		mname := method.Name
+		mtype := method.Type //eg:  func (c *Cat) SetName(name string, n *int) bool  => func(*main.Cat, string, *int) bool
+		mname := method.Name //eg：SetName
 
 		//fmt.Printf("%v pp %v ni %v 1k %v 2k %v no %v\n",
 		//	mname, method.PkgPath, mtype.NumIn(), mtype.In(1).Kind(), mtype.In(2).Kind(), mtype.NumOut())
 
-		if method.PkgPath != "" || // capitalized?
-			mtype.NumIn() != 3 ||
+		if method.PkgPath != "" || // capitalized?这里判断函数名是否是大写，大写的话为空
+			mtype.NumIn() != 3 || //这里判断参数是否有3个，每个服务都要有三个参数，eg：结构体本身(*raft.Raft)，args，reply
 			//mtype.In(1).Kind() != reflect.Ptr ||
-			mtype.In(2).Kind() != reflect.Ptr ||
-			mtype.NumOut() != 0 {
+			mtype.In(2).Kind() != reflect.Ptr || // 这里判断第1和第2个参数是否为指针类型。注：第0个参数默认为结构体本身
+			mtype.NumOut() != 0 { //这里判断不能有返回值
 			// the method is not suitable for a handler
 			//fmt.Printf("bad method: %v\n", mname)
 		} else {

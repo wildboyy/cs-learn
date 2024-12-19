@@ -89,12 +89,13 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 
 	applier := cfg.applier
 	if snapshot {
+		//如果开启了快照，则使用这个applier
 		applier = cfg.applierSnap
 	}
 	// create a full set of Rafts.
 	for i := 0; i < cfg.n; i++ {
 		cfg.logs[i] = map[int]interface{}{}
-		cfg.start1(i, applier)
+		cfg.start1(i, applier) //启动一个raft节点
 	}
 
 	// connect everyone
@@ -141,8 +142,11 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	err_msg := ""
 	v := m.Command
 	for j := 0; j < len(cfg.logs); j++ {
+		//fmt.Println(m.CommandIndex, i, j, cfg.rafts[i].role, cfg.rafts[j].role, v, cfg.logs[j][m.CommandIndex], m.CommandValid)
+		//fmt.Println(cfg.rafts[i].logs)
+		//fmt.Println(cfg.rafts[j].logs)
 		if old, oldok := cfg.logs[j][m.CommandIndex]; oldok && old != v {
-			log.Printf("%v: log %v; server %v\n", i, cfg.logs[i], cfg.logs[j])
+			log.Printf("%v: log %v \n; server %v\n", i, cfg.logs[i], cfg.logs[j])
 			// some server has already committed a different value for this entry!
 			err_msg = fmt.Sprintf("commit index=%v server=%v %v != server=%v %v",
 				m.CommandIndex, i, m.Command, j, old)
@@ -302,6 +306,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 	if cfg.saved[i] != nil {
 		cfg.saved[i] = cfg.saved[i].Copy()
 
+		//读取持久化数据
 		snapshot := cfg.saved[i].ReadSnapshot()
 		if snapshot != nil && len(snapshot) > 0 {
 			// mimic KV server and process snapshot now.
@@ -429,8 +434,11 @@ func (cfg *config) setlongreordering(longrel bool) {
 //
 // try a few times in case re-elections are needed.
 //
+//检验是否只有一个leader，并返回
+
 func (cfg *config) checkOneLeader() int {
 	for iters := 0; iters < 10; iters++ {
+		DPrintf("--------------------第 %v 次----------------------", iters)
 		ms := 450 + (rand.Int63() % 100)
 		time.Sleep(time.Duration(ms) * time.Millisecond)
 
@@ -462,6 +470,7 @@ func (cfg *config) checkOneLeader() int {
 }
 
 // check that everyone agrees on the term.
+//检验每一个节点的term是否一致,并返回
 func (cfg *config) checkTerms() int {
 	term := -1
 	for i := 0; i < cfg.n; i++ {
@@ -503,6 +512,8 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 
 		cfg.mu.Lock()
 		cmd1, ok := cfg.logs[i][index]
+		//fmt.Println(i, cfg.logs[i])
+		//fmt.Println(cfg.rafts[i].logs)
 		cfg.mu.Unlock()
 
 		if ok {
@@ -560,6 +571,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // times, in case a leader fails just after Start().
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 2B tests.
+//leader提交一个命令，并判断此后此命令是否同步到>=expectedServers个数的节点上
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 	t0 := time.Now()
 	starts := 0
@@ -575,6 +587,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 			}
 			cfg.mu.Unlock()
 			if rf != nil {
+				//fmt.Println(si, cfg.rafts[si].role)
 				index1, _, ok := rf.Start(cmd)
 				if ok {
 					index = index1
